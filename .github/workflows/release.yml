@@ -1,0 +1,59 @@
+name: ReleaseCI
+on:
+  push:
+    branches:
+      - main
+      - lambda
+
+jobs:
+
+  # Build ./lambda/** code and update function.zip
+  deploy_lambda:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+    
+    - name: Clone 
+      uses: actions/checkout@v2
+
+    # Setup Go...
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '1.12.6' # The Go version to download (if necessary) and use.
+    
+    - name: Install dependencies
+      run: |
+        go get -u \
+          github.com/aws/aws-lambda-go/events \
+          github.com/aws/aws-lambda-go/lambda \
+          github.com/aws/aws-sdk-go/aws \
+          github.com/aws/aws-sdk-go/service/s3 \
+          github.com/paulmach/go.geojson \
+          github.com/sirupsen/logrus \
+          golang.org/x/lint/golint \
+          
+    - name: Run vet & lint
+      run: |
+        go vet ./cmd/ ./pkg/...
+        golint ./cmd/ ./pkg/...
+        go fmt ./cmd/ ./pkg/...
+    
+    - name: Build
+      run: GOOS=linux go build -o ./build/s3RoundTrip ./cmd/
+
+    - name: Zip Function
+      run: cd ./build && zip ./function.zip s3RoundTrip
+
+    - name: Deploy Function
+      run: |
+        export AWS_DEFAULT_REGION=us-east-1 &&\
+        cd ./build &&\
+          aws lambda update-function-code \
+            --function-name s3RoundTrip \
+            --zip-file fileb://function.zip
+         
+
