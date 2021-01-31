@@ -2,8 +2,7 @@ name: ReleaseCI
 on:
   push:
     branches:
-      - main
-      - lambda
+      - none
 
 jobs:
 

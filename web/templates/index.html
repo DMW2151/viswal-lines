@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+</head>
+
+<body>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script>
+        $(function () {
+
+            $("#searchBar").autocomplete({
+                source: function (request, response) {
+                    console.log(request)
+                    jQuery.post(
+                        "http://3.95.15.209:8081/search",
+                        JSON.stringify({ 'queryString': request.term }),
+                        function (data) {
+                            console.log(data)
+                            var obj = JSON.parse(data);
+                            response(obj);
+                        });
+                }
+            })
+        });
+    </script>
+
+    <div class="ui-widget">
+        <label for="Shapes">Shapes: </label>
+        <input id="searchBar">
+    </div>
+    </div>
+</body>
+
+</html>
