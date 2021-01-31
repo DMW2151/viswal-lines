@@ -17,7 +17,7 @@
                 source: function (request, response) {
                     console.log(request)
                     jQuery.post(
-                        "http://3.95.15.209:8081/search",
+                        "http://localhost:8081/search",
                         JSON.stringify({ 'queryString': request.term }),
                         function (data) {
                             console.log(data)
