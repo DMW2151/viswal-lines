@@ -2,4 +2,4 @@
 
 ## See Notes + Docs
 
-![Docs](./docs/elastic.md)
+![Docs](./docs/docs.md)
