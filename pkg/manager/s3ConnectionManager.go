@@ -3,6 +3,7 @@ package manager
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -23,8 +24,14 @@ type S3Session struct {
 
 // S3UploadObject -
 type S3UploadObject struct {
-	Data []byte `json:"Data"`
+	Data []byte       `json:"Data"`
+	Meta S3UploadMeta `json:"Meta"`
+}
+
+// S3UploadMeta -
+type S3UploadMeta struct {
 	Hash string `json:"Hash"`
+	Name string `json:"Name"`
 }
 
 // NewS3Session - Initialize S3 Connection
@@ -95,7 +102,7 @@ func (s *S3Session) StartS3UploadWorker(targetBucket string, jobs <-chan *S3Uplo
 
 	// Check IF File Exists
 	for s3Upload := range jobs {
-		var fileKey string = fmt.Sprintf("%s.geojson", s3Upload.Hash)
+		var fileKey string = fmt.Sprintf("%s.geojson", s3Upload.Meta.Hash)
 
 		// Check if Head Exists
 		output, _ := svc.HeadObject(
@@ -107,7 +114,9 @@ func (s *S3Session) StartS3UploadWorker(targetBucket string, jobs <-chan *S3Uplo
 
 		// If file DNE - Send to S3
 		if output.ContentLength == nil {
-			_, err := s3.New(s.session).PutObject(&s3.PutObjectInput{
+
+			// Send the Main Content to Main Folder
+			_, err = svc.PutObject(&s3.PutObjectInput{
 				Bucket:               aws.String(targetBucket),
 				Key:                  aws.String(fileKey),
 				Body:                 bytes.NewReader(s3Upload.Data), // QUESTION: Does this waste space???
@@ -120,6 +129,26 @@ func (s *S3Session) StartS3UploadWorker(targetBucket string, jobs <-chan *S3Uplo
 			if err != nil {
 				log.Warn(err)
 			}
+
+			// Send the Meta to a Meta Folder
+
+			// Generate Metadata Object
+			metaContent, _ := json.Marshal(s3Upload.Meta)
+
+			_, err = svc.PutObject(&s3.PutObjectInput{
+				Bucket:               aws.String(targetBucket),
+				Key:                  aws.String(fmt.Sprintf("meta/%s", fileKey)),
+				Body:                 bytes.NewReader(metaContent), // QUESTION: Does this waste space???
+				ContentLength:        aws.Int64(int64(len(metaContent))),
+				ContentType:          aws.String(http.DetectContentType(metaContent)),
+				ContentDisposition:   aws.String("attachment"),
+				ServerSideEncryption: aws.String("AES256"),
+				ACL:                  aws.String("private"),
+			})
+			if err != nil {
+				log.Warn(err)
+			}
+
 		}
 
 		if err != nil {

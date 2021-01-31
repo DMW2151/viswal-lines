@@ -56,9 +56,19 @@ func handler(ctx context.Context, s3Event events.S3Event) (string, error) {
 				log.Warn(err)
 			}
 
+			// Get Name - Safely
+			featureName := feature.Properties["name"]
+			if featureName == nil {
+				featureName = ""
+			}
+
+			// Send object...
 			s3Object = manager.S3UploadObject{
 				Data: featureData,
-				Hash: fmt.Sprintf("%x", md5.Sum(featureData)),
+				Meta: manager.S3UploadMeta{
+					Hash: fmt.Sprintf("%x", md5.Sum(featureData)),
+					Name: featureName.(string),
+				},
 			}
 
 			workerPool <- &s3Object
