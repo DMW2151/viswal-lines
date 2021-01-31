@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 
@@ -32,6 +33,7 @@ type S3UploadObject struct {
 type S3UploadMeta struct {
 	Hash string `json:"Hash"`
 	Name string `json:"Name"`
+	Path string `json:"Path"`
 }
 
 // NewS3Session - Initialize S3 Connection
@@ -89,7 +91,8 @@ func (s *S3Session) DownloadFeatureFromS3(sourceBucket string, fileKey string) (
 // AddObjectToS3 will upload a single file to S3, it will require a pre-built aws session
 // and will set file info like content type and encryption on the uploaded file.
 // TODO: Error logging channel
-func (s *S3Session) StartS3UploadWorker(targetBucket string, jobs <-chan *S3UploadObject) {
+func (s *S3Session) StartS3UploadWorker(i int, targetBucket string, jobs <-chan *S3UploadObject, wg *sync.WaitGroup) {
+	defer wg.Done()
 
 	var err error
 
@@ -102,6 +105,7 @@ func (s *S3Session) StartS3UploadWorker(targetBucket string, jobs <-chan *S3Uplo
 
 	// Check IF File Exists
 	for s3Upload := range jobs {
+		log.Info("Worker %d Recieved: %+v\n", i, s3Upload.Meta)
 		var fileKey string = fmt.Sprintf("%s.geojson", s3Upload.Meta.Hash)
 
 		// Check if Head Exists
@@ -137,7 +141,7 @@ func (s *S3Session) StartS3UploadWorker(targetBucket string, jobs <-chan *S3Uplo
 
 			_, err = svc.PutObject(&s3.PutObjectInput{
 				Bucket:               aws.String(targetBucket),
-				Key:                  aws.String(fmt.Sprintf("meta/%s", fileKey)),
+				Key:                  aws.String(fmt.Sprintf("meta/%s_meta.json", s3Upload.Meta.Hash)),
 				Body:                 bytes.NewReader(metaContent), // QUESTION: Does this waste space???
 				ContentLength:        aws.Int64(int64(len(metaContent))),
 				ContentType:          aws.String(http.DetectContentType(metaContent)),
@@ -148,11 +152,6 @@ func (s *S3Session) StartS3UploadWorker(targetBucket string, jobs <-chan *S3Uplo
 			if err != nil {
 				log.Warn(err)
 			}
-
-		}
-
-		if err != nil {
-			log.Warn(err)
 		}
 	}
 }
