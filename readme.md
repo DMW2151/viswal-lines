@@ -2,4 +2,4 @@
 
 ## See Notes + Docs
 
-![Docs](./docs/docs.md)
+[Docs](./docs/docs.md)
